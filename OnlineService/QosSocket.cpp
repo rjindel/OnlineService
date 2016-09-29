@@ -4,10 +4,11 @@
 
 uint32_t QosSocket::instanceCounter = 0;
 
-QosSocket::QosSocket() : instanceId(instanceCounter++), 
-	exit(false),
-	packetsLost(0),
-	packetsSent(0)
+QosSocket::QosSocket() : instanceId(instanceCounter++) 
+	, exit(false)
+	,packetsLost(0)
+	,packetsSent(0)
+	//,QosThread( std::thread(&QosSocket::Measure, this) )
 {
 	memset(buffer, 0xff, MAX_PAYLOADSIZE);
 }
@@ -24,27 +25,22 @@ void QosSocket::StartMeasuringQos()
 	QosPacket* packet = (QosPacket*)buffer;		//We could use a union instead here
 	packet->instanceId = instanceId;
 
-	thread = CreateThread(nullptr, 0, &Measure, this, 0, nullptr);
+	QosThread = std::thread(&QosSocket::Measure, this);
 }
 
 void QosSocket::StopMeasuring()
 {
 	exit = true;
-	WaitForSingleObject(thread, INFINITE);
+	QosThread.join();
 	WSACloseEvent(socketInfo.overlapped.hEvent);
-	CloseHandle(thread);
 }
 
-DWORD QosSocket::Measure(LPVOID threadParameter)
+void QosSocket::Measure()
 { 
-	QosSocket *thisPtr = (QosSocket*)threadParameter;
-
-	while (!thisPtr->exit)
+	while (!exit)
 	{
-		thisPtr->MeasureLoop();
+		MeasureLoop();
 	}
-
-	return 0;
 }
 
 void QosSocket::MeasureLoop()

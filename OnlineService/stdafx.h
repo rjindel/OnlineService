@@ -17,6 +17,7 @@
 #include <tchar.h>
 
 #include <string>
+#include <thread>
 
 #include <msgpack.hpp>
 

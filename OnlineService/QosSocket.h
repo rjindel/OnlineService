@@ -24,8 +24,6 @@ class QosSocket : public SimpleSocket
 	uint32_t	packetsLost;
 	uint32_t	averagePing;
 
-	HANDLE thread;
-
 	LARGE_INTEGER startTime, endTime, frequency;
 	LARGE_INTEGER accumulator = { 0 };
 	static uint32_t instanceCounter;
@@ -35,7 +33,8 @@ class QosSocket : public SimpleSocket
 
 	static const int MAX_PAYLOADSIZE = 256;
 	char buffer[MAX_PAYLOADSIZE];
-
+	
+	std::thread QosThread;
 	bool exit;
 public:
 	QosSocket();
@@ -43,7 +42,7 @@ public:
 	void StartMeasuringQos();
 	void StopMeasuring();
 
-	static DWORD CALLBACK Measure(LPVOID threadParameter);
+	void Measure();
 	void MeasureLoop();
 	static void CALLBACK RecvCallback(DWORD , DWORD, LPWSAOVERLAPPED, DWORD);
 };

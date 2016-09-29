@@ -18,45 +18,36 @@ void PrintWSAError()
 	PrintError(err);
 }
 
-/*DWORD CALLBACK*/
 void ListenFunction(const int threadId)
 {
 	addrinfo addressInfo = {};
+	addressInfo.ai_flags = AI_CANONNAME;
 	addressInfo.ai_family = AF_INET; // AF_UNSPEC;
 	addressInfo.ai_socktype = SOCK_DGRAM;
 	addressInfo.ai_protocol = IPPROTO_UDP;
-	
+
 	const uint32_t MAX_PACKETSIZE = 256;
 	char buffer[MAX_PACKETSIZE];
 
 	int port = 27015 + threadId;
 	int addrSize = sizeof(sockaddr);
-	
-	addrinfo* resultPtr = nullptr;
-	//sockaddr_in incomingConnection = {0};
 
-	//incomingConnection.sin_family = AF_INET;
-	//incomingConnection.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
-	//incomingConnection.sin_port = htons(port);	
-	//
-	//sockaddr incomingConnection = {0};
-	//incomingConnection.sa_family = AF_INET;
-	//incomingConnection.sa_data
+	addrinfo* resultPtr = nullptr;
+	sockaddr_in incomingAddress = {0};
+	int incomingAddressLength = sizeof(incomingAddress);
 
 	auto err = getaddrinfo("0.0.0.0", std::to_string(port).c_str(), &addressInfo, &resultPtr);
 	PrintError(err);
 
-	//SOCKET listenSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	SOCKET listenSocket = socket(resultPtr->ai_family, resultPtr->ai_socktype, resultPtr->ai_protocol);
 
-	//err = bind(listenSocket, (sockaddr*)&incomingConnection, sizeof(incomingConnection));
 	err = bind(listenSocket, resultPtr->ai_addr, resultPtr->ai_addrlen);
+	printf("Binding to %s\n", resultPtr->ai_canonname);
 
 	freeaddrinfo(resultPtr);
 	while (true)
 	{
-		//int bytesRead = recvfrom(listenSocket, &buffer[0], MAX_PACKETSIZE, 0, (sockaddr*)&incomingConnection, &addrSize);
-		int bytesRead = recvfrom(listenSocket, &buffer[0], MAX_PACKETSIZE, 0, resultPtr->ai_addr,  (int*)&resultPtr->ai_addrlen);
+		int bytesRead = recvfrom(listenSocket, &buffer[0], MAX_PACKETSIZE, 0, (sockaddr*)&incomingAddress, &incomingAddressLength);
 		if (bytesRead == SOCKET_ERROR)
 		{
 			const int MAX_STRING_SIZE = 256;
@@ -65,11 +56,11 @@ void ListenFunction(const int threadId)
 			FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, err, 0, buffer, MAX_STRING_SIZE, nullptr);
 			printf("Error from recv: %s", buffer);
 			WSACleanup();
+			return;
 		}
-		printf("%i bytes Received\n", bytesRead);
+		printf("%i bytes Received from %s\n", bytesRead, inet_ntoa(incomingAddress.sin_addr));
 		Sleep(800);
-		int bytesSent = sendto(listenSocket, buffer, bytesRead, 0, (sockaddr*)  resultPtr->ai_addr, resultPtr->ai_addrlen);
-		//int bytesSent = sendto(listenSocket, buffer, bytesRead, 0, (sockaddr*) &incomingConnection, addrSize);
+		int bytesSent = sendto(listenSocket, buffer, bytesRead, 0, (sockaddr*) &incomingAddress, incomingAddressLength);
 		if (bytesSent == SOCKET_ERROR)
 		{
 			const int MAX_STRING_SIZE = 256;
@@ -78,8 +69,9 @@ void ListenFunction(const int threadId)
 			FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, err, 0, buffer, MAX_STRING_SIZE, nullptr);
 			printf("Error from Sendto: %s", buffer);
 			WSACleanup();
+			return;
 		}
-		printf("%i bytes Sent\n", bytesSent);
+		printf("%i bytes Sent to %s \n", bytesSent, inet_ntoa(incomingAddress.sin_addr));
 	}
 }
 
@@ -89,21 +81,20 @@ int main()
 
 	auto err = WSAStartup(MAKEWORD(2, 2), &wsaData);
 
-	const int numConnections = 1;
+	const int numConnections = 3;
 	std::thread threads[numConnections];
 
 	for (int i = 0; i < numConnections; ++i)
 	{
-		//threads[i] = CreateThread(nullptr, 0, ListenFunction, &i, 0, nullptr);
 		threads[i] = std::thread(ListenFunction, i);
 	}
 
 //	WaitForMultipleObjects(numConnections, threads, true, INFINITE);
 //
-//	for (int i = 0; i < numConnections; ++i)
-//	{
-//		CloseHandle(threads[i]);
-//	}
+	for (int i = 0; i < numConnections; ++i)
+	{
+		threads[i].join();
+	}
 
 	WSACleanup();
 

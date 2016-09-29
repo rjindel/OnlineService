@@ -67,8 +67,8 @@ int main()
 
 	if (true)
 	{
-		int port = 27016;
-		const uint32_t numConnections = 1;
+		int port = 27015;
+		const uint32_t numConnections = 3;
 		QosSocket socketsArray[numConnections];
 		for (uint32_t i = 0; i < numConnections; i++)
 		{
@@ -79,9 +79,10 @@ int main()
 		}
 		getchar();
 		//Waitforthreads;
-		for (auto socket : socketsArray)
+		//for (auto socket : socketsArray)	//Required copy constructor for QosSocket
+		for( uint32_t i = 0; i < numConnections; i++)
 		{
-			socket.StopMeasuring();
+			socketsArray[i].StopMeasuring();
 		}
 
 		WSACleanup();
